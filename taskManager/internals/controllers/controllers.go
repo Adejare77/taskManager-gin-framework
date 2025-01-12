@@ -92,32 +92,17 @@ func Login(ctx *gin.Context) {
 
 func GetTasks(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
-	title := ctx.Query("title")
-	status := ctx.Query("status")
-	taskID := ctx.Query("taskID")
+	// title := "%" + ctx.Query("title") + "%"
+	// status := "%" + ctx.Query("status") + "%"
+	// taskID := "%" + ctx.Query("taskID") + "%"
 
-	if title == "" {
-		title = "%"
-	}
-	if status == "" {
-		status = "%"
-	}
-	if taskID == "" {
-		taskID = "%"
-	}
+	// var filter schemas.Task
+	// filter.Title = title
+	// filter.Status = status
+	// filter.TaskID = taskID
 
-	var filter schemas.Task
-	filter.Title = title
-	filter.Status = status
-	filter.TaskID = taskID
-
-	// fmt.Println("-------------------------------")
-	// fmt.Println(status)
-	// fmt.Println(title)
-	// fmt.Println(taskID)
-	// fmt.Println("-------------------------------")
-
-	tasks, err := models.GetTasksByUserID(userID, filter)
+	// tasks, err := models.GetTasksByUserID(userID, filter)
+	tasks, err := models.GetTasksByUserID(userID)
 	if err != nil {
 		fmt.Println(tasks)
 		fmt.Println(err)
@@ -133,34 +118,19 @@ func GetTasks(ctx *gin.Context) {
 }
 
 func GetTasksByID(ctx *gin.Context) {
-	ctx.MustGet("userID")
+	userID := ctx.MustGet("userID").(uint)
 	taskID := ctx.Param("taskID")
 
-	result, err := models.GetTasksByTaskID(taskID)
-	if err != nil {
-		fmt.Println("Error: ", err)
-		handlers.InternalServerError(ctx)
-		return
-	}
+	result := models.GetTaskByTaskID(userID, taskID)
 
 	ctx.JSON(http.StatusOK, result)
 }
 
 func DeleteTask(ctx *gin.Context) {
-	ctx.MustGet("userID")
+	userID := ctx.MustGet("userID").(uint)
+	taskID := ctx.Param("taskID")
 
-	type TaskID struct {
-		TaskID string `json:"taskID" binding:"required"`
-	}
-	var taskID TaskID
-
-	if err := ctx.ShouldBindJSON(&taskID); err != nil {
-		fmt.Println("Error:", err)
-		handlers.BadRequestWithMsg(ctx, "`id` field required")
-		return
-	}
-
-	if err := models.DeleteTaskByTaskID(taskID.TaskID); err != nil {
+	if err := models.DeleteTaskByTaskID(userID, taskID); err != nil {
 		fmt.Println("Error:", err)
 		handlers.InternalServerError(ctx)
 		return
@@ -216,7 +186,7 @@ func UpdateTask(ctx *gin.Context) {
 		return
 	}
 
-	if err := models.UpdateTaskByUserID(userID, task); err != nil {
+	if err := models.UpdateTaskByTaskID(userID, task); err != nil {
 		fmt.Println("Error:", err)
 		handlers.InternalServerErrorWithMsg(ctx, "Error Updating Task")
 		return
