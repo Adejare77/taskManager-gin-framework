@@ -17,32 +17,40 @@ type Task struct {
 	Status    string `json:"status" gorm:"column:status;not null" binding:"required,status"`
 }
 
-func GetTasksByUserID(UserID uint, filter schemas.Task) ([]schemas.Task, error) {
-	var tasks []schemas.Task
+// func GetTasksByUserID(UserID uint, filter schemas.Task) ([]schemas.Task, error) {
+// 	var tasks []schemas.Task
 
-	if err := db.Where("\"userID\" = ? AND title ILIKE ? AND status ILIKE ? AND \"taskID\" ILIKE ?",
-		UserID, filter.Title, filter.Status, filter.TaskID).Find(&Task{}).Error; err != nil {
-		return nil, err
-	}
-	return tasks, nil
-}
+// 	if err := db.Debug().Where("\"userID\" = ? AND title ILIKE '%groceri%' AND status ILIKE '%%' AND \"taskID\" ILIKE '%%'",
+// 		UserID).Find(&tasks).Error; err != nil {
+// 		return nil, err
+// 	}
+// 	return tasks, nil
+// }
 
-func GetTasksByTaskID(taskID string) ([]schemas.Task, error) {
-	var tasks []schemas.Task
+// func GetTasksByTaskID(taskID string) ([]schemas.Task, error) {
+// 	var tasks []schemas.Task
 
-	if err := db.First(&tasks, "\"taskID\" = ?", taskID).Error; err != nil {
-		return nil, err
-	}
-	return tasks, nil
-}
+// 	db.Scopes(UserObject())
 
-func GetTasksByStatus(status int) ([]schemas.Task, error) {
-	var tasks []schemas.Task
+// 	if err := db.First(&tasks, "\"taskID\" = ?", taskID).Error; err != nil {
+// 		return nil, err
+// 	}
+// 	return tasks, nil
+// }
 
-	if err := db.First(&tasks, "status = ?", status).Error; err != nil {
-		return nil, err
-	}
-	return tasks, nil
+// func GetTasksByStatus(status int) ([]schemas.Task, error) {
+// 	var tasks []schemas.Task
+
+// 	if err := db.First(&tasks, "status = ?", status).Error; err != nil {
+// 		return nil, err
+// 	}
+// 	return tasks, nil
+// }
+
+func GetTaskByTaskID(userID uint, taskID string) schemas.Task {
+	var task schemas.Task
+	db.First(&task, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID)
+	return task
 }
 
 func CreateTask(task Task) error {
@@ -52,15 +60,16 @@ func CreateTask(task Task) error {
 	return nil
 }
 
-func DeleteTaskByTaskID(taskID string) error {
-	if err := db.Delete(&Task{}, "taskID = ?", taskID).Error; err != nil {
+func DeleteTaskByTaskID(userID uint, taskID string) error {
+	if err := db.Delete(&Task{}, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func UpdateTaskByUserID(userID uint, values schemas.Task) error {
-	if err := db.Model(&Task{}).Updates(values).Error; err != nil {
+func UpdateTaskByTaskID(userID uint, values schemas.Task) error {
+	// if err := db.Scopes(UserObject(userID)).Updates(values).Error; err
+	if err := db.Model(&Task{}).Where("taskID = ? AND \"userID\" = ?", values.TaskID, userID).Updates(values).Error; err != nil {
 		return err
 	}
 	return nil
