@@ -14,8 +14,8 @@ var ProtectedRoutes = func(route *gin.RouterGroup) {
 	route.GET("/task", controllers.GetTasks)
 	route.GET("/task/:taskID", controllers.GetTasksByID)
 	route.POST("/task", controllers.PostTask)
-	route.PUT("/task/:id", controllers.UpdateTask)
-	route.DELETE("/task/:id", controllers.DeleteTask)
+	route.PUT("/task/:taskID", controllers.UpdateTask)
+	route.DELETE("/task/:taskID", controllers.DeleteTask)
 
 	route.DELETE("/user", controllers.DeleteUser)
 }
