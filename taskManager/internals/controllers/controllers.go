@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Adejare77/go/taskManager/config"
 	"github.com/Adejare77/go/taskManager/internals/handlers"
@@ -16,7 +17,7 @@ import (
 )
 
 func Register(ctx *gin.Context) {
-	var user models.User
+	var user schemas.User
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		fmt.Println("Error:", err)
 		if fieldError, ok := err.(validator.ValidationErrors); ok {
@@ -28,19 +29,8 @@ func Register(ctx *gin.Context) {
 		return
 	}
 
-	// hash password
-	hashedPwd, err := utilities.HashPassword(user.Password)
-	if err != nil {
-		fmt.Println("Error:", err)
-		handlers.InternalServerError(ctx)
-		return
-	}
-
-	// Set hashedPwd value
-	user.Password = string(hashedPwd)
-
 	// Create User
-	if err := user.Create(); err != nil {
+	if err := models.Create(user); err != nil {
 		fmt.Println("Error:", err.Error())
 		if strings.Contains(err.Error(), "duplicate") {
 			handlers.BadRequestWithMsg(ctx, "Email Already Exists")
@@ -72,11 +62,15 @@ func Login(ctx *gin.Context) {
 
 	userID, passwd, err := models.GetInfo(user.Email)
 	if err != nil {
+		fmt.Println("Error: ", err)
+		fmt.Println("POINT 1")
 		handlers.UnauthorizedWithMsg(ctx, "Invalid Email or Password")
 		return
 	}
 
 	if err := utilities.ComparePaswword(user.Password, passwd); err != nil {
+		fmt.Println("POINT 2")
+		fmt.Println("Error: ", err)
 		handlers.UnauthorizedWithMsg(ctx, "Invalid Email or Password")
 		return
 	}
@@ -92,17 +86,15 @@ func Login(ctx *gin.Context) {
 
 func GetTasks(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
-	// title := "%" + ctx.Query("title") + "%"
-	// status := "%" + ctx.Query("status") + "%"
-	// taskID := "%" + ctx.Query("taskID") + "%"
+	title := "%" + ctx.Query("title") + "%"
+	status := "%" + ctx.Query("status") + "%"
 
-	// var filter schemas.Task
-	// filter.Title = title
-	// filter.Status = status
-	// filter.TaskID = taskID
+	var filter schemas.Task
+	filter.Title = title
+	filter.Status = status
 
-	// tasks, err := models.GetTasksByUserID(userID, filter)
-	tasks, err := models.GetTasksByUserID(userID)
+	tasks, err := models.GetTasksByUserID(userID, filter)
+	// tasks, err := models.GetTasksByUserID(userID)
 	if err != nil {
 		fmt.Println(tasks)
 		fmt.Println(err)
@@ -141,8 +133,8 @@ func DeleteTask(ctx *gin.Context) {
 }
 
 func PostTask(ctx *gin.Context) {
-	var task models.Task
-	task.UserID = ctx.MustGet("userID").(uint)
+	var task schemas.TaskOutput
+	userID := ctx.MustGet("userID").(uint)
 
 	if err := ctx.ShouldBindBodyWithJSON(&task); err != nil {
 		fmt.Println("Error:", err)
@@ -156,24 +148,30 @@ func PostTask(ctx *gin.Context) {
 	}
 
 	// inputDate, _ := task.DueDate.(string)
-	task.DueDate = utilities.TimeManipulator(task.DueDate)
+	dueDate := utilities.TimeManipulator(task.DueDate)
+	var startDate time.Time
+	if task.StartDate != "" {
+		startDate = utilities.TimeManipulator(task.StartDate)
+	}
 
-	// Assign a Unique Task ID
-	task.TaskID = uuid.New().String()
+	// copy the values into models.Task object
+	var body schemas.Task
 
-	if err := models.CreateTask(task); err != nil {
+	body.TaskID = uuid.New().String()
+	body.UserID = userID
+	body.Desc = task.Desc
+	body.Title = task.Title
+	body.StartDate = startDate
+	body.DueDate = dueDate
+
+	if err := models.CreateTask(body); err != nil {
 		fmt.Println("Error:", err)
 		handlers.InternalServerError(ctx)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"taskID":      task.TaskID,
-		"title":       task.Title,
-		"description": task.Desc,
-		"dueDate":     task.DueDate,
-		"status":      task.Status,
-	})
+	task = models.GetTaskByTaskID(userID, body.TaskID)
+	ctx.JSON(http.StatusOK, task)
 }
 
 func UpdateTask(ctx *gin.Context) {
