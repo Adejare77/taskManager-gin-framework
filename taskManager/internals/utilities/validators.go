@@ -14,9 +14,11 @@ func statusValidation(fl validator.FieldLevel) bool {
 	return status == "pending" || status == "in-progress"
 }
 
-func dueDateValidation(fl validator.FieldLevel) bool {
+func dateValidation(fl validator.FieldLevel) bool {
 	date := fl.Field().String()
-	if strings.Contains(date, "day") || strings.Contains(date, "hour") || strings.Contains(date, "minute") {
+	if date == "" {
+		return true
+	} else if strings.Contains(date, "day") || strings.Contains(date, "hour") || strings.Contains(date, "minute") {
 		var number int
 		var unit string
 
@@ -50,7 +52,7 @@ func RegisterValidation() {
 	// Register the above Validations
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("status", statusValidation)
-		v.RegisterValidation("dueDate", dueDateValidation)
+		v.RegisterValidation("date", dateValidation)
 	}
 }
 
@@ -65,7 +67,7 @@ func ValidationError(err validator.ValidationErrors) []string {
 			errorDetails = append(errorDetails,
 				"status can only be `pending` or `in-progress`",
 			)
-		} else if fieldError.Tag() == "dueDate" {
+		} else if fieldError.Tag() == "date" {
 			errorDetails = append(errorDetails,
 				"dueDate format:\n`YYYY-MM-DDTHH:MM` e.g., 2024-05-19T22:15,\n`x day(s)` e.g., 3 days (relative to the current time)\n`x hour(s)` e.g., 5 hours (relative to the current time)",
 			)
