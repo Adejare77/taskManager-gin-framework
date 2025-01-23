@@ -20,12 +20,10 @@ func init() {
 	// Start Database Connection
 	Connect(user, pwd, db_name)
 
-	// Confirm Redis Server Running
-	// RedisConnect(addr, pwd)
-
 	// Create Session on Redis Server
 	InitSession(addr, pwd, secretKey)
 
 	// Register New Validators
 	utilities.RegisterValidation()
+
 }
