@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/Adejare77/go/taskManager/config"
+	"github.com/Adejare77/go/taskManager/internals/jobs"
 	"github.com/Adejare77/go/taskManager/internals/middlewares"
 	"github.com/Adejare77/go/taskManager/internals/routes"
 	"github.com/gin-contrib/sessions"
@@ -15,6 +16,9 @@ func main() {
 	app := gin.Default()
 
 	app.Use(sessions.Sessions("taskManager", config.SessionStore))
+
+	// Start Cron Job
+	jobs.StatusUpdater()
 
 	// Public Routes
 	publicRoutes := app.Group("/")
