@@ -1,76 +1,61 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Adejare77/go/taskManager/internals/schemas"
 )
 
-type Task struct {
-	UserID    uint   `gorm:"column:userID;index;not null"`
-	TaskID    string `gorm:"column:taskID"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Desc      string `json:"description" gorm:"column:description;not null" binding:"required"`
-	Title     string `json:"title" gorm:"column:title;not null" binding:"required"`
-	DueDate   string `json:"dueDate" gorm:"column:dueDate;not null" binding:"required,dueDate"`
-	Status    string `json:"status" gorm:"column:status;not null" binding:"required,status"`
+func GetTasksByUserID(userID uint, filter schemas.Task) ([]schemas.TaskOutput, error) {
+	var tasks []schemas.Task
+
+	if err := db.Debug().Where("title ILIKE ? AND status ILIKE ? AND \"userID\" = ?",
+		filter.Title, filter.Status, userID).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	var taskOutput []schemas.TaskOutput
+	for _, task := range tasks {
+		taskOutput = append(taskOutput, schemas.ToTaskOutput(task))
+	}
+	return taskOutput, nil
 }
 
-// func GetTasksByUserID(UserID uint, filter schemas.Task) ([]schemas.Task, error) {
-// 	var tasks []schemas.Task
-
-// 	if err := db.Debug().Where("\"userID\" = ? AND title ILIKE '%groceri%' AND status ILIKE '%%' AND \"taskID\" ILIKE '%%'",
-// 		UserID).Find(&tasks).Error; err != nil {
-// 		return nil, err
-// 	}
-// 	return tasks, nil
-// }
-
-// func GetTasksByTaskID(taskID string) ([]schemas.Task, error) {
-// 	var tasks []schemas.Task
-
-// 	db.Scopes(UserObject())
-
-// 	if err := db.First(&tasks, "\"taskID\" = ?", taskID).Error; err != nil {
-// 		return nil, err
-// 	}
-// 	return tasks, nil
-// }
-
-// func GetTasksByStatus(status int) ([]schemas.Task, error) {
-// 	var tasks []schemas.Task
-
-// 	if err := db.First(&tasks, "status = ?", status).Error; err != nil {
-// 		return nil, err
-// 	}
-// 	return tasks, nil
-// }
-
-func GetTaskByTaskID(userID uint, taskID string) schemas.Task {
+func GetTaskByTaskID(userID uint, taskID string) schemas.TaskOutput {
 	var task schemas.Task
-	db.First(&task, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID)
-	return task
+	db.Debug().First(&task, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID)
+	return schemas.ToTaskOutput(task)
 }
 
-func CreateTask(task Task) error {
-	if err := db.Create(&task).Error; err != nil {
+func CreateTask(task schemas.Task) error {
+	if err := db.Debug().Create(&task).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 func DeleteTaskByTaskID(userID uint, taskID string) error {
-	if err := db.Delete(&Task{}, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Error; err != nil {
+	if err := db.Debug().Delete(&schemas.TaskOutput{}, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 func UpdateTaskByTaskID(userID uint, values schemas.Task) error {
-	// if err := db.Scopes(UserObject(userID)).Updates(values).Error; err
-	if err := db.Model(&Task{}).Where("taskID = ? AND \"userID\" = ?", values.TaskID, userID).Updates(values).Error; err != nil {
+	if err := db.Model(&schemas.TaskOutput{}).Where("taskID = ? AND \"userID\" = ?", values.TaskID, userID).Updates(values).Error; err != nil {
 		return err
 	}
 	return nil
+}
+
+func CheckStatus() {
+	if err := db.Model(&schemas.Task{}).Debug().
+		Where("\"startDate\" <= ? AND \"dueDate\" > ? AND status != ?", time.Now(), time.Now(), "in-progress").
+		Update("status", "in-progress").Error; err != nil {
+		fmt.Println("Error: ", err)
+	}
+
+	db.Model(&schemas.Task{}).Debug().
+		Where("\"dueDate\" <= ? AND status != ? AND status != ?", time.Now(), "overdue", "completed").
+		Update("status", "overdue")
 }
