@@ -9,16 +9,22 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func statusValidation(fl validator.FieldLevel) bool {
-	status := fl.Field().String()
-	return status == "pending" || status == "in-progress"
+func startDateValidation(fl validator.FieldLevel) bool {
+	startDate := fl.Field().String()
+
+	layout := "2006-01-02 15:04" // Constant layout
+
+	_, err := time.Parse(layout, startDate)
+	if err != nil {
+		return err == nil
+	}
+	return true
 }
 
-func dateValidation(fl validator.FieldLevel) bool {
+func dueDateValidation(fl validator.FieldLevel) bool {
 	date := fl.Field().String()
-	if date == "" {
-		return true
-	} else if strings.Contains(date, "day") || strings.Contains(date, "hour") || strings.Contains(date, "minute") {
+
+	if strings.Contains(date, "day") || strings.Contains(date, "hour") || strings.Contains(date, "minute") {
 		var number int
 		var unit string
 
@@ -39,38 +45,47 @@ func dateValidation(fl validator.FieldLevel) bool {
 		}
 	}
 
-	layout := "2006-01-02T15:04" // Constant layout
+	layout := "2006-01-02 15:04" // Constant layout
 
-	parsedTime, err := time.Parse(layout, date)
-	if err == nil {
-		return parsedTime.Format(layout) > time.Now().String()
+	_, err := time.Parse(layout, date)
+	if err != nil {
+		return err == nil
 	}
-	return false
+
+	return true
 }
 
 func RegisterValidation() {
 	// Register the above Validations
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("status", statusValidation)
-		v.RegisterValidation("date", dateValidation)
+		v.RegisterValidation("startdate", startDateValidation)
+		v.RegisterValidation("duedate", dueDateValidation)
 	}
 }
 
-func ValidationError(err validator.ValidationErrors) []string {
-	var errorDetails []string
+func ValidationError(err validator.ValidationErrors) []any {
+	var errorDetails []any
 	for _, fieldError := range err {
 		if fieldError.Tag() == "required" {
 			errorDetails = append(errorDetails, fmt.Sprintf(
 				"missing %s field", fieldError.Field(),
 			))
-		} else if fieldError.Tag() == "status" {
+		} else if fieldError.Tag() == "duedate" {
 			errorDetails = append(errorDetails,
-				"status can only be `pending` or `in-progress`",
+				map[string]any{
+					"dueDate format": "`YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15," +
+						"`x day(s)` e.g., 3 days (relative to the current time)," +
+						"`x hour(s)` e.g., 5 hours (relative to the current time)",
+				},
 			)
-		} else if fieldError.Tag() == "date" {
+		} else if fieldError.Tag() == "startdate" {
 			errorDetails = append(errorDetails,
-				"dueDate format:\n`YYYY-MM-DDTHH:MM` e.g., 2024-05-19T22:15,\n`x day(s)` e.g., 3 days (relative to the current time)\n`x hour(s)` e.g., 5 hours (relative to the current time)",
+				"startDate format: `YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15",
 			)
+		} else if fieldError.Tag() == "email" {
+			errorDetails = append(errorDetails, "Invalid email Format")
+		} else {
+			errorDetails = append(errorDetails, err.Error())
 		}
 	}
 	return errorDetails
