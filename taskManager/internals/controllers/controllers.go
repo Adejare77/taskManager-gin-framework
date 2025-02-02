@@ -12,6 +12,7 @@ import (
 	"github.com/Adejare77/go/taskManager/internals/schemas"
 	"github.com/Adejare77/go/taskManager/internals/utilities"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
@@ -33,7 +34,7 @@ func Register(ctx *gin.Context) {
 	if err := models.Create(user); err != nil {
 		fmt.Println("Error:", err.Error())
 		if strings.Contains(err.Error(), "duplicate") {
-			handlers.BadRequestWithMsg(ctx, "Email Already Exists")
+			ctx.JSON(http.StatusConflict, "Email already in use")
 		} else {
 			handlers.InternalServerErrorWithMsg(ctx, "Could Not Register User")
 		}
@@ -63,15 +64,13 @@ func Login(ctx *gin.Context) {
 	userID, passwd, err := models.GetInfo(user.Email)
 	if err != nil {
 		fmt.Println("Error: ", err)
-		fmt.Println("POINT 1")
-		handlers.UnauthorizedWithMsg(ctx, "Invalid Email or Password")
+		handlers.UnauthorizedWithMsg(ctx, "Invalid email or password")
 		return
 	}
 
 	if err := utilities.ComparePaswword(user.Password, passwd); err != nil {
-		fmt.Println("POINT 2")
 		fmt.Println("Error: ", err)
-		handlers.UnauthorizedWithMsg(ctx, "Invalid Email or Password")
+		handlers.UnauthorizedWithMsg(ctx, "Invalid email or password")
 		return
 	}
 
@@ -93,19 +92,12 @@ func GetTasks(ctx *gin.Context) {
 	filter.Title = title
 	filter.Status = status
 
-	tasks, err := models.GetTasksByUserID(userID, filter)
-	// tasks, err := models.GetTasksByUserID(userID)
-	if err != nil {
-		fmt.Println(tasks)
-		fmt.Println(err)
-		if strings.Contains(err.Error(), "record not found") {
-			ctx.JSON(http.StatusOK, "Empty Task. Add New Task")
-			return
-		}
-		handlers.InternalServerError(ctx)
+	tasks, _ := models.GetTasksByUserID(userID, filter)
+
+	if len(tasks) == 0 {
+		ctx.JSON(http.StatusOK, "Empty")
 		return
 	}
-
 	ctx.JSON(http.StatusOK, tasks)
 }
 
@@ -113,7 +105,11 @@ func GetTasksByID(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
 	taskID := ctx.Param("taskID")
 
-	result := models.GetTaskByTaskID(userID, taskID)
+	result, err := models.GetTaskByTaskID(userID, taskID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, result)
 }
@@ -128,12 +124,12 @@ func DeleteTask(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, "Task Deleted Successfully")
+	ctx.JSON(http.StatusOK, "Task successfully deleted")
 	ctx.Redirect(http.StatusSeeOther, "/task")
 }
 
 func PostTask(ctx *gin.Context) {
-	var task schemas.TaskOutput
+	var task schemas.PostTask
 	userID := ctx.MustGet("userID").(uint)
 
 	if err := ctx.ShouldBindBodyWithJSON(&task); err != nil {
@@ -147,51 +143,91 @@ func PostTask(ctx *gin.Context) {
 		return
 	}
 
-	// inputDate, _ := task.DueDate.(string)
-	dueDate := utilities.TimeManipulator(task.DueDate)
-	var startDate time.Time
-	if task.StartDate != "" {
-		startDate = utilities.TimeManipulator(task.StartDate)
-	}
-
-	// copy the values into models.Task object
-	var body schemas.Task
-
-	body.TaskID = uuid.New().String()
-	body.UserID = userID
-	body.Desc = task.Desc
-	body.Title = task.Title
-	body.StartDate = startDate
-	body.DueDate = dueDate
-
-	if err := models.CreateTask(body); err != nil {
-		fmt.Println("Error:", err)
-		handlers.InternalServerError(ctx)
-		return
-	}
-
-	task = models.GetTaskByTaskID(userID, body.TaskID)
-	ctx.JSON(http.StatusOK, task)
-}
-
-func UpdateTask(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
-	var task schemas.Task
-
-	if err := ctx.ShouldBindBodyWithJSON(&task); err != nil {
-		fmt.Println("Error:", err)
+	body, err := schemas.ToTask(task)
+	if err != nil {
+		fmt.Println("Error: ", err)
 		handlers.BadRequest(ctx)
 		return
 	}
 
-	if err := models.UpdateTaskByTaskID(userID, task); err != nil {
+	body.UserID = userID
+	body.TaskID = uuid.New().String()
+
+	if err := models.CreateTask(body); err != nil {
 		fmt.Println("Error:", err)
-		handlers.InternalServerErrorWithMsg(ctx, "Error Updating Task")
+		handlers.BadRequestWithMsg(ctx, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, task)
-	ctx.Redirect(http.StatusSeeOther, fmt.Sprintf("/task/:%v", userID))
+	result, err := models.GetTaskByTaskID(userID, body.TaskID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+	ctx.JSON(http.StatusOK, result)
+}
+
+func UpdateTask(ctx *gin.Context) {
+	userID := ctx.MustGet("userID").(uint)
+	taskID := ctx.Param("taskID")
+
+	var dataValues map[string]interface{}
+	var dataTime schemas.DateTimeUpdate
+
+	if err := ctx.ShouldBindBodyWith(&dataValues, binding.JSON); err != nil {
+		fmt.Println("Error: ", err)
+		handlers.BadRequest(ctx)
+		return
+	}
+
+	if err := ctx.ShouldBindBodyWith(&dataTime, binding.JSON); err != nil {
+		if fieldErros, ok := err.(validator.ValidationErrors); ok {
+			msg := utilities.ValidationError(fieldErros)
+			handlers.BadRequestWithMsg(ctx, msg)
+			fmt.Println("Error: ", err)
+			return
+		}
+	}
+
+	if dataTime.StartDate != "" || dataTime.DueDate != "" {
+		existingDoc, err := models.GetTaskByTaskID(userID, taskID)
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
+
+		if dataTime.StartDate == "" {
+			dataTime.StartDate = existingDoc.StartDate
+		}
+		if dataTime.DueDate == "" {
+			dataTime.DueDate = existingDoc.DueDate
+		}
+
+		var startDate time.Time
+		if startDate, err = utilities.StartTimeManipulator(dataTime.StartDate); err == nil {
+			dataValues["startDate"] = startDate
+		} else {
+			fmt.Println("Error: ", err)
+			handlers.BadRequestWithMsg(ctx, err.Error())
+			return
+		}
+
+		if dueDate, err := utilities.DueTimeManipulator(dataTime.DueDate, startDate); err == nil {
+			dataValues["dueDate"] = dueDate
+		} else {
+			fmt.Println("Error: ", err)
+			handlers.BadRequestWithMsg(ctx, err.Error())
+			return
+		}
+	}
+
+	if err := models.UpdateTaskByTaskID(userID, taskID, dataValues); err != nil {
+		fmt.Println("Error: ", err)
+		handlers.BadRequestWithMsg(ctx, err)
+		return
+	}
+
+	ctx.Redirect(http.StatusSeeOther, fmt.Sprint(taskID))
 }
 
 func DeleteUser(ctx *gin.Context) {
@@ -203,7 +239,6 @@ func DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	// Delete the User's Session
 	config.DeleteSession(ctx)
 
 	ctx.JSON(http.StatusOK, "User Deleted Successfully")
