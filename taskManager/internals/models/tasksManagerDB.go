@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -21,10 +22,14 @@ func GetTasksByUserID(userID uint, filter schemas.Task) ([]schemas.TaskOutput, e
 	return taskOutput, nil
 }
 
-func GetTaskByTaskID(userID uint, taskID string) schemas.TaskOutput {
+func GetTaskByTaskID(userID uint, taskID string) (schemas.TaskOutput, error) {
 	var task schemas.Task
-	db.Debug().First(&task, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID)
-	return schemas.ToTaskOutput(task)
+	cursor := db.Debug().First(&task, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID)
+
+	if cursor.RowsAffected == 0 {
+		return schemas.TaskOutput{}, errors.New("task not found")
+	}
+	return schemas.ToTaskOutput(task), nil
 }
 
 func CreateTask(task schemas.Task) error {
@@ -35,14 +40,16 @@ func CreateTask(task schemas.Task) error {
 }
 
 func DeleteTaskByTaskID(userID uint, taskID string) error {
-	if err := db.Debug().Delete(&schemas.TaskOutput{}, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Error; err != nil {
+	if err := db.Debug().Delete(&schemas.Task{}, "\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func UpdateTaskByTaskID(userID uint, values schemas.Task) error {
-	if err := db.Model(&schemas.TaskOutput{}).Where("taskID = ? AND \"userID\" = ?", values.TaskID, userID).Updates(values).Error; err != nil {
+func UpdateTaskByTaskID(userID uint, taskID string, data map[string]interface{}) error {
+	fmt.Println("TASK UPDATING CALLED")
+	if err := db.Model(&schemas.Task{}).
+		Where("\"taskID\" = ? AND \"userID\" = ?", taskID, userID).Updates(data).Error; err != nil {
 		return err
 	}
 	return nil
@@ -55,7 +62,16 @@ func CheckStatus() {
 		fmt.Println("Error: ", err)
 	}
 
-	db.Model(&schemas.Task{}).Debug().
+	if err := db.Model(&schemas.Task{}).Debug().
 		Where("\"dueDate\" <= ? AND status != ? AND status != ?", time.Now(), "overdue", "completed").
-		Update("status", "overdue")
+		Update("status", "overdue").Error; err != nil {
+		fmt.Println("Error: ", err)
+	}
+
+	if err := db.Model(&schemas.Task{}).Debug().
+		Where("\"startDate\" >= ? AND status != ? AND status != ?", time.Now(), "pending", "completed").
+		Update("status", "pending").Error; err != nil {
+		fmt.Println("Error: ", err)
+	}
+
 }
