@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Adejare77/go/taskManager/internals/schemas"
@@ -74,4 +75,24 @@ func CheckStatus() {
 		fmt.Println("Error: ", err)
 	}
 
+}
+
+func UpdateTaskStatus() {
+	now := time.Now()
+
+	// Update tasks from progress to "in-progress"
+	if err := db.Model(&schemas.Task{}).
+		Where("\"startDate\" <= ? AND \"dueDate\" > ? AND status NOT IN (?, ?)",
+			now, now, "in-progress", "completed").
+		Update("status", "in-progress").Error; err != nil {
+		log.Printf("failed to update in-progress tasks: %v", err)
+	}
+
+	// Update uncompleted tasks to "overdue"
+	if err := db.Model(&schemas.Task{}).
+		Where("\"dueDate\" <= ? AND status NOT IN (?, ?)",
+			now, "overdue", "completed").
+		Update("status", "overdue").Error; err != nil {
+		log.Printf("Failed to update overdue tasks: %v", err)
+	}
 }
