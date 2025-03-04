@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"log"
 
 	"github.com/Adejare77/go/taskManager/config"
 	"github.com/Adejare77/go/taskManager/internals/schemas"
@@ -9,6 +10,21 @@ import (
 )
 
 var db = config.DB
+
+func GetInfo(email string) (uint, string, error) {
+	log.Println("*********************")
+	log.Println(email)
+	log.Println(config.DB)
+	log.Println(db)
+	log.Println("*********************")
+	var user schemas.User
+	err := db.Debug().Where("email=?", email).First(&user).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, "", err
+	}
+	return user.ID, user.Password, nil
+}
 
 func GetTasksByStatus(userID uint, status string) ([]schemas.TaskOutput, error) {
 	var user schemas.User
@@ -23,16 +39,6 @@ func GetTasksByStatus(userID uint, status string) ([]schemas.TaskOutput, error) 
 	return taskOutput, nil
 }
 
-func GetInfo(email string) (uint, string, error) {
-	var user schemas.User
-	err := db.Debug().Where("email=?", email).First(&user).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, "", err
-	}
-	return user.ID, user.Password, nil
-}
-
 func Create(user schemas.User) error {
 	err := db.Create(&user).Error
 
@@ -42,7 +48,7 @@ func Create(user schemas.User) error {
 	return nil
 }
 
-func DeleteUser(userID string) error {
+func DeleteUser(userID int) error {
 	if err := db.Unscoped().Delete(&schemas.User{}, userID).Error; err != nil {
 		return err
 	}
