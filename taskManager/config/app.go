@@ -1,29 +1,31 @@
 package config
 
 import (
-	"os"
+	"fmt"
+	"log"
 
 	"github.com/Adejare77/go/taskManager/internals/utilities"
 	"github.com/joho/godotenv"
 )
 
-func init() {
+// Initialize sets up the application configuration
+func Initialize() error {
 	// load .env file
-	godotenv.Overload()
+	if err := godotenv.Overload(); err != nil {
+		log.Printf("Warning: No .env file found. Using environment variables")
+	}
 
-	addr := os.Getenv("REDIS_ADDRESS")
-	pwd := os.Getenv("PASSWORD")
-	db_name := os.Getenv("DB")
-	user := os.Getenv("USER")
-	secretKey := os.Getenv("SECRET_KEY")
+	// Initialize Session on Redis Server
+	if err := InitSession(); err != nil {
+		return fmt.Errorf("%v", err)
+	}
 
 	// Start Database Connection
-	Connect(user, pwd, db_name)
-
-	// Create Session on Redis Server
-	InitSession(addr, pwd, secretKey)
+	if err := Connect(); err != nil {
+		return fmt.Errorf("%v", err)
+	}
 
 	// Register New Validators
 	utilities.RegisterValidation()
-
+	return nil
 }
