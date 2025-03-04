@@ -1,10 +1,8 @@
 package controllers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/Adejare77/go/taskManager/config"
 	"github.com/Adejare77/go/taskManager/internals/handlers"
@@ -13,33 +11,25 @@ import (
 	"github.com/Adejare77/go/taskManager/internals/utilities"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 func Register(ctx *gin.Context) {
 	var user schemas.User
 	if err := ctx.ShouldBindJSON(&user); err != nil {
-		fmt.Println("Error:", err)
-		if fieldError, ok := err.(validator.ValidationErrors); ok {
-			msg := utilities.ValidationError(fieldError)
-			handlers.BadRequestWithMsg(ctx, msg)
-			return
-		}
-		handlers.BadRequest(ctx)
+		handlers.BadRequest(ctx, "Bad Request", utilities.ValidationError(err))
 		return
 	}
 
-	// Create User
 	if err := models.Create(user); err != nil {
-		fmt.Println("Error:", err.Error())
-		if strings.Contains(err.Error(), "duplicate") {
-			ctx.JSON(http.StatusConflict, "Email already in use")
-		} else {
-			handlers.InternalServerErrorWithMsg(ctx, "Could Not Register User")
-		}
+		handlers.InternalServerError(ctx, "Failed to create user", err)
 		return
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"email": user.Email,
+	}).Info("User registered successfully")
 
 	ctx.JSON(http.StatusCreated, gin.H{
 		"fullName": user.FullName,
@@ -51,36 +41,40 @@ func Register(ctx *gin.Context) {
 func Login(ctx *gin.Context) {
 	var user schemas.Login
 	if err := ctx.ShouldBindJSON(&user); err != nil {
-		fmt.Println("Error:", err)
-		if fieldError, ok := err.(validator.ValidationErrors); ok {
-			msg := utilities.ValidationError(fieldError)
-			handlers.BadRequestWithMsg(ctx, msg)
-			return
-		}
-		handlers.BadRequest(ctx)
+		handlers.BadRequest(ctx, "Invalid login format", utilities.ValidationError(err))
 		return
 	}
+
+	// log.Println("-----------------------------")
+	// log.Println(user.Email)
+	// log.Println(user.Password)
+	// log.Println("-----------------------------")
 
 	userID, passwd, err := models.GetInfo(user.Email)
 	if err != nil {
-		fmt.Println("Error: ", err)
-		handlers.UnauthorizedWithMsg(ctx, "Invalid email or password")
+		handlers.Unauthorized(ctx, "Failed to fetch user info", "Invalid email or password")
 		return
 	}
+	log.Println("-----------------------------")
+	log.Println("POINT 2")
+	log.Println(user)
+	log.Println("-----------------------------")
 
 	if err := utilities.ComparePaswword(user.Password, passwd); err != nil {
-		fmt.Println("Error: ", err)
-		handlers.UnauthorizedWithMsg(ctx, "Invalid email or password")
+		handlers.Unauthorized(ctx, "Invalid password", "Invalid email or password")
 		return
 	}
 
 	if err := config.CreateSession(ctx, userID); err != nil {
-		fmt.Println("Error:", err)
-		handlers.InternalServerError(ctx)
+		handlers.InternalServerError(ctx, "Failed to create session", err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, "login Successfully")
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID,
+	}).Info("User logged in successfully")
+
+	ctx.JSON(http.StatusOK, "Login Successful")
 }
 
 func GetTasks(ctx *gin.Context) {
@@ -92,12 +86,17 @@ func GetTasks(ctx *gin.Context) {
 	filter.Title = title
 	filter.Status = status
 
-	tasks, _ := models.GetTasksByUserID(userID, filter)
-
-	if len(tasks) == 0 {
-		ctx.JSON(http.StatusOK, "Empty")
+	tasks, err := models.GetTasksByUserID(userID, filter)
+	if err != nil {
+		handlers.InternalServerError(ctx, "Failed to fetch tasks", err)
 		return
 	}
+
+	if len(tasks) == 0 {
+		ctx.JSON(http.StatusOK, "No tasks found")
+		return
+	}
+
 	ctx.JSON(http.StatusOK, tasks)
 }
 
@@ -107,7 +106,7 @@ func GetTasksByID(ctx *gin.Context) {
 
 	result, err := models.GetTaskByTaskID(userID, taskID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		handlers.NotFound(ctx, "Failed to fetch task", err)
 		return
 	}
 
@@ -119,13 +118,16 @@ func DeleteTask(ctx *gin.Context) {
 	taskID := ctx.Param("taskID")
 
 	if err := models.DeleteTaskByTaskID(userID, taskID); err != nil {
-		fmt.Println("Error:", err)
-		handlers.InternalServerError(ctx)
+		handlers.InternalServerError(ctx, "Failed to delete task", err)
 		return
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID,
+		"task_id": taskID,
+	}).Info("Task deleted Successfully")
+
 	ctx.JSON(http.StatusOK, "Task successfully deleted")
-	ctx.Redirect(http.StatusSeeOther, "/task")
 }
 
 func PostTask(ctx *gin.Context) {
@@ -133,20 +135,13 @@ func PostTask(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
 
 	if err := ctx.ShouldBindBodyWithJSON(&task); err != nil {
-		fmt.Println("Error:", err)
-		if fieldErrors, ok := err.(validator.ValidationErrors); ok {
-			msg := utilities.ValidationError(fieldErrors)
-			handlers.BadRequestWithMsg(ctx, msg)
-			return
-		}
-		handlers.BadRequest(ctx)
+		handlers.BadRequest(ctx, "Invalid Post Request Body", utilities.ValidationError(err))
 		return
 	}
 
 	body, err := schemas.ToTask(task)
 	if err != nil {
-		fmt.Println("Error: ", err)
-		handlers.BadRequest(ctx)
+		handlers.BadRequest(ctx, "Could not Convert PostTask Input to Task", err.Error())
 		return
 	}
 
@@ -154,16 +149,26 @@ func PostTask(ctx *gin.Context) {
 	body.TaskID = uuid.New().String()
 
 	if err := models.CreateTask(body); err != nil {
-		fmt.Println("Error:", err)
-		handlers.BadRequestWithMsg(ctx, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"user_id": userID,
+			"error":   err.Error(),
+		}).Error()
+
+		handlers.InternalServerError(ctx, "Failed to create task", err)
 		return
 	}
 
 	result, err := models.GetTaskByTaskID(userID, body.TaskID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		handlers.NotFound(ctx, "Task not found", err)
 		return
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"use_id":  userID,
+		"task_id": body.TaskID,
+	}).Info("Task created successfully")
+
 	ctx.JSON(http.StatusOK, result)
 }
 
@@ -172,74 +177,85 @@ func UpdateTask(ctx *gin.Context) {
 	taskID := ctx.Param("taskID")
 
 	var dataValues map[string]interface{}
-	var dataTime schemas.DateTimeUpdate
+	var dateData schemas.DateTimeUpdate
 
+	// Bind JSON data to dataValues and dateData
 	if err := ctx.ShouldBindBodyWith(&dataValues, binding.JSON); err != nil {
-		fmt.Println("Error: ", err)
-		handlers.BadRequest(ctx)
+		handlers.BadRequest(ctx, "Invalid Request Body", utilities.ValidationError(err))
 		return
 	}
 
-	if err := ctx.ShouldBindBodyWith(&dataTime, binding.JSON); err != nil {
-		if fieldErros, ok := err.(validator.ValidationErrors); ok {
-			msg := utilities.ValidationError(fieldErros)
-			handlers.BadRequestWithMsg(ctx, msg)
-			fmt.Println("Error: ", err)
-			return
-		}
+	if err := ctx.ShouldBindBodyWith(&dateData, binding.JSON); err != nil {
+		handlers.BadRequest(ctx, "Invalid date fields in Request Body", utilities.ValidationError(err))
+		return
 	}
 
-	if dataTime.StartDate != "" || dataTime.DueDate != "" {
-		existingDoc, err := models.GetTaskByTaskID(userID, taskID)
+	if dateData.StartDate != "" || dateData.DueDate != "" {
+		// Fetch the existing task to get current dates
+		existingTask, err := models.GetTaskByTaskID(userID, taskID)
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			handlers.NotFound(ctx, "Task not found", err)
+		}
+
+		// if startDate is not provided, use the existing startDate
+		if dateData.StartDate == "" {
+			dateData.StartDate = existingTask.StartDate
+		}
+
+		// if dueDate is not provided, use the existing dueDate
+		if dateData.DueDate == "" {
+			dateData.DueDate = existingTask.DueDate
+		}
+
+		// validate and parse startDate
+		startDate, err := utilities.StartTimeManipulator(dateData.StartDate)
+		if err != nil {
+			handlers.BadRequest(ctx, "Invalid startDate", err.Error())
 			return
 		}
 
-		if dataTime.StartDate == "" {
-			dataTime.StartDate = existingDoc.StartDate
-		}
-		if dataTime.DueDate == "" {
-			dataTime.DueDate = existingDoc.DueDate
-		}
-
-		var startDate time.Time
-		if startDate, err = utilities.StartTimeManipulator(dataTime.StartDate); err == nil {
-			dataValues["startDate"] = startDate
-		} else {
-			fmt.Println("Error: ", err)
-			handlers.BadRequestWithMsg(ctx, err.Error())
+		// validate and parse dueDate
+		dueDate, err := utilities.DueTimeManipulator(dateData.DueDate, startDate)
+		if err != nil {
+			handlers.BadRequest(ctx, "Invalid dueDate", err.Error())
 			return
 		}
 
-		if dueDate, err := utilities.DueTimeManipulator(dataTime.DueDate, startDate); err == nil {
-			dataValues["dueDate"] = dueDate
-		} else {
-			fmt.Println("Error: ", err)
-			handlers.BadRequestWithMsg(ctx, err.Error())
+		// Update dataValues with the parsed dates
+		dataValues["startDate"] = startDate
+		dataValues["dueDate"] = dueDate
+
+		// Update the task with the new data
+		if err := models.UpdateTaskByTaskID(userID, taskID, dataValues); err != nil {
+			handlers.InternalServerError(ctx, "Unable to update data", err.Error())
 			return
 		}
+
+		ctx.Redirect(http.StatusSeeOther, taskID)
 	}
 
 	if err := models.UpdateTaskByTaskID(userID, taskID, dataValues); err != nil {
-		fmt.Println("Error: ", err)
-		handlers.BadRequestWithMsg(ctx, err)
+		handlers.InternalServerError(ctx, "Failed to update task", err)
 		return
 	}
 
-	ctx.Redirect(http.StatusSeeOther, fmt.Sprint(taskID))
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID,
+		"task_id": taskID,
+	}).Info("Task updated successfully")
+
+	ctx.JSON(http.StatusOK, "Task updated successfully")
 }
 
 func DeleteUser(ctx *gin.Context) {
-	UserID := ctx.MustGet("userID").(string)
+	userID := ctx.MustGet("userID").(int)
 
-	if err := models.DeleteUser(UserID); err != nil {
-		fmt.Println(err)
-		handlers.InternalServerErrorWithMsg(ctx, "Unable to delete User")
+	if err := models.DeleteUser(userID); err != nil {
+		handlers.InternalServerError(ctx, "Could not delete user", err)
 		return
 	}
 
 	config.DeleteSession(ctx)
 
-	ctx.JSON(http.StatusOK, "User Deleted Successfully")
+	ctx.JSON(http.StatusOK, "User deleted successfully")
 }
