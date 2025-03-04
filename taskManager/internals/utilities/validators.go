@@ -63,30 +63,49 @@ func RegisterValidation() {
 	}
 }
 
-func ValidationError(err validator.ValidationErrors) []any {
-	var errorDetails []any
-	for _, fieldError := range err {
-		if fieldError.Tag() == "required" {
-			errorDetails = append(errorDetails, fmt.Sprintf(
-				"missing %s field", fieldError.Field(),
-			))
-		} else if fieldError.Tag() == "duedate" {
-			errorDetails = append(errorDetails,
-				map[string]any{
-					"dueDate format": "`YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15," +
-						"`x day(s)` e.g., 3 days (relative to the current time)," +
-						"`x hour(s)` e.g., 5 hours (relative to the current time)",
-				},
-			)
-		} else if fieldError.Tag() == "startdate" {
-			errorDetails = append(errorDetails,
-				"startDate format: `YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15",
-			)
-		} else if fieldError.Tag() == "email" {
-			errorDetails = append(errorDetails, "Invalid email Format")
-		} else {
-			errorDetails = append(errorDetails, err.Error())
-		}
+// func ValidationError(err validator.ValidationErrors) []any {
+// 	var errorDetails []any
+// 	for _, fieldError := range err {
+// 		if fieldError.Tag() == "required" {
+// 			errorDetails = append(errorDetails, fmt.Sprintf(
+// 				"missing %s field", fieldError.Field(),
+// 			))
+// 		} else if fieldError.Tag() == "duedate" {
+// 			errorDetails = append(errorDetails,
+// 				map[string]any{
+// 					"dueDate format": "`YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15," +
+// 						"`x day(s)` e.g., 3 days (relative to the current time)," +
+// 						"`x hour(s)` e.g., 5 hours (relative to the current time)",
+// 				},
+// 			)
+// 		} else if fieldError.Tag() == "startdate" {
+// 			errorDetails = append(errorDetails,
+// 				"startDate format: `YYYY-MM-DD HH:MM` e.g., 2024-05-19 22:15",
+// 			)
+// 		} else if fieldError.Tag() == "email" {
+// 			errorDetails = append(errorDetails, "Invalid email Format")
+// 		} else {
+// 			errorDetails = append(errorDetails, err.Error())
+// 		}
+// 	}
+// 	return errorDetails
+// }
+
+func ValidationError(err error) interface{} {
+	if err == nil {
+		return nil
 	}
-	return errorDetails
+
+	// Handle Validation errors
+	if fieldErrors, ok := err.(validator.ValidationErrors); ok {
+		errorMessages := make(map[string]string)
+		for _, fieldError := range fieldErrors {
+			field := strings.ToLower(fieldError.Field())
+			errorMessages[field] = fmt.Sprintf("Invalid value for %s: %s", field, fieldError.Tag())
+		}
+		return errorMessages
+	}
+
+	// Handle other types of errors (e.g JSON parsing errors)
+	return err.Error()
 }
