@@ -1,9 +1,7 @@
 package middlewares
 
 import (
-	"encoding/json"
-	"net/http"
-
+	"github.com/Adejare77/go/taskManager/internals/handlers"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -12,30 +10,17 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		// Retrieve current user session
-		user := session.Get("user")
+		user := session.Get("currentUser")
 
 		if user == nil {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Unauthorized",
-			})
-			// Abort Current Execution
+			handlers.Unauthorized(ctx, "login required", "unauthorized access")
 			ctx.Abort()
 			return
 		}
 
-		var userID uint
-
-		// Unmarshal the stored session
-		json.Unmarshal(user.([]byte), &userID)
-
 		// store userID in the context for next handler
-		ctx.Set("userID", userID)
-
-		// Reset the TTL of key as long as the user is using it
-		session.Options(sessions.Options{
-			MaxAge: 600,
-		})
-
+		ctx.Set("currentUser", user)     // set key for next function
+		session.Set("currentUser", user) // roll-over key
 		session.Save()
 
 		ctx.Next()
