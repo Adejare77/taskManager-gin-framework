@@ -2,38 +2,27 @@ package jobs
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"strconv"
 
+	"github.com/Adejare77/go/taskManager/internals/handlers"
 	"github.com/Adejare77/go/taskManager/internals/models"
 	"github.com/robfig/cron/v3"
 )
 
-// func StatusUpdater() {
-// 	// Create a cron instance
-// 	c := cron.New()
-
-// 	// schedule a task
-// 	c.AddFunc("@every 60s", models.CheckStatus)
-
-// 	// Start scheduler
-// 	c.Start()
-// }
-
-var cronScheduler *cron.Cron
-
-func StatusUpdater() error {
+func ScheduledStatusUpdater() error {
 	// Load cron schedule from environment variable
-	schedule := os.Getenv("CRON_SCHEDULE")
-	if schedule == "" {
-		schedule = "@60s" // Default schedule
+	// schedule, err := time.ParseDuration(os.Getenv("CRON_SCHEDULE"))
+	schedule, err := strconv.Atoi(os.Getenv("CRON_SCHEDULE"))
+	if err != nil {
+		handlers.Warning("Invalid cron schedule time. Default to 60s")
+		schedule = 60
 	}
 
 	// Create a new cron instance or scheduler
-	cronScheduler = cron.New()
-
+	cronScheduler := cron.New()
 	// Add the task status update job
-	_, err := cronScheduler.AddFunc(schedule, updateTaskStatus)
+	cronID, err := cronScheduler.AddFunc(fmt.Sprintf("@every %ds", schedule), models.StatusUpdater)
 	if err != nil {
 		return fmt.Errorf("failed to add cron job: %v", err)
 	}
@@ -41,13 +30,9 @@ func StatusUpdater() error {
 	// start the cron scheduler
 	cronScheduler.Start()
 
-	log.Println("Cron jobs started")
-	return nil
-}
+	handlers.Info(map[string]any{
+		"cron_job ID": cronID,
+	}, "cron job started..")
 
-// StopCronJobs stops the cron jobs gracefully
-func updateTaskStatus() {
-	log.Println("Updating task status...")
-	models.UpdateTaskStatus()
-	log.Println("Task status updated successfully")
+	return nil
 }
