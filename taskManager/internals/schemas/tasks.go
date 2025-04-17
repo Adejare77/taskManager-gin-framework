@@ -3,30 +3,30 @@ package schemas
 import (
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/Adejare77/go/taskManager/internals/utilities"
 )
 
 // Define Task Table
 type Task struct {
-	ID        uint   `gorm:"primaryKey"`
-	UserID    uint   `gorm:"column:userID;not null;index"`
-	TaskID    string `gorm:"column:taskID"`
-	CreatedAt time.Time
+	TaskID    string              `gorm:"type:uuid;default:gen_random_uuid();index"`
+	UserID    string              `gorm:"not null;index;type:uuid"`
+	Desc      string              `json:"description" gorm:"type:text;not null" binding:"required"`
+	Title     string              `gorm:"type:text;not null" binding:"required"`
+	StartDate *utilities.JSONTime `json:"start_date" gorm:"not null;type:timestamp" binding:"omitempty"`
+	DueDate   utilities.JSONTime  `json:"due_date" gorm:"not null;type:timestamp" binding:"required"`
+	Status    string              `gorm:"not null;default:pending"`
+	User      User                `gorm:"foreignKey:UserID;" binding:"-"`
+	CreatedAt time.Time           `gorm:"index"`
 	UpdatedAt time.Time
-	Desc      string    `json:"description" gorm:"column:description;not null"`
-	Title     string    `json:"title" gorm:"column:title;not null"`
-	StartDate time.Time `json:"startDate" gorm:"column:startDate;not null"`
-	DueDate   time.Time `json:"dueDate" gorm:"column:dueDate;not null"`
-	Status    string    `json:"status" gorm:"column:status;not null"`
-	User      User      `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
-// Hooks to be called before Creating a Task
-func (task *Task) BeforeSave(tx *gorm.DB) error {
-	if task.StartDate.Before(time.Now()) {
-		task.Status = "in-progress"
-	} else {
-		task.Status = "pending"
-	}
-	return nil
+type TaskQueryParams struct {
+	Title  string `form:"title" binding:"omitempty"`
+	Status string `form:"status" binding:"omitempty,oneof=pending in-progress completed"`
+	Page   int    `form:"page" binding:"numeric,min=1"`
+	Limit  int    `form:"limit" binding:"numeric,min=1"`
+}
+
+type TaskUriParam struct {
+	TaskID string `uri:"task_id" binding:"required,uuid"`
 }
