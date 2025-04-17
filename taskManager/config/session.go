@@ -1,12 +1,11 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
+	"github.com/Adejare77/go/taskManager/internals/handlers"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -23,11 +22,14 @@ type SessionConfig struct {
 func loadSessionConfig() (*SessionConfig, error) {
 	size, err := strconv.Atoi(os.Getenv("REDIS_SIZE"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid REDIS_SIZE")
+		handlers.Warning("invalid REDIS_SIZE. Defaults to size 10")
+		size = 10
 	}
+
 	maxAge, err := strconv.Atoi(os.Getenv("SESSION_MAX_AGE"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid SESSION_MAX_AGE")
+		handlers.Warning("invalid SESSION_MAX_AGE. Defaults to 600s")
+		maxAge = 600
 	}
 
 	// Create and return RDConfig
@@ -45,16 +47,20 @@ var SessionStore redis.Store
 func InitSession() error {
 	cfg, err := loadSessionConfig()
 	if err != nil {
-		return fmt.Errorf("(session configuration) %v", err)
+		return fmt.Errorf("session configuration %v", err)
 	}
+
 	store, err := redis.NewStore(
 		cfg.RedisSize, "tcp", cfg.RedisAddress, cfg.RDPassword, []byte(cfg.SecretKey))
 	if err != nil {
-		return fmt.Errorf("(session initialization) %v", err)
+		return fmt.Errorf("session initialization %v", err)
 	}
 
 	store.Options(sessions.Options{
-		MaxAge: cfg.MaxAge,
+		MaxAge:   cfg.MaxAge,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
 	})
 
 	SessionStore = store
@@ -62,16 +68,10 @@ func InitSession() error {
 }
 
 // Create a new session for the user
-func CreateSession(ctx *gin.Context, id uint) error {
+func CreateSession(ctx *gin.Context, userID string) error {
 	session := sessions.Default(ctx)
 
-	// Encode value before setting
-	value, err := json.Marshal(id)
-	if err != nil {
-		return fmt.Errorf("failed to marshal session value: %v", err)
-	}
-
-	session.Set("user", value)
+	session.Set("currentUser", userID)
 	if err := session.Save(); err != nil {
 		return fmt.Errorf("failed to save session: %v", err)
 	}
@@ -81,10 +81,15 @@ func CreateSession(ctx *gin.Context, id uint) error {
 // Delete the user's session
 func DeleteSession(ctx *gin.Context) {
 	session := sessions.Default(ctx)
-	session.Delete("user")
+
+	session.Clear()
 	// Invalidate the cookie
-	session.Options(sessions.Options{MaxAge: -1})
+	session.Options(sessions.Options{
+		MaxAge: -1,
+		Path:   "/",
+	})
+
 	if err := session.Save(); err != nil {
-		log.Printf("Failed to delete session: %v", err)
+		handlers.InternalServerError(ctx, "error deleting session", "Failed to Delete Session")
 	}
 }
