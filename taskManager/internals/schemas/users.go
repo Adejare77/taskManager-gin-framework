@@ -8,17 +8,17 @@ import (
 )
 
 type User struct {
-	ID        uint `gorm:"primaryKey"`
+	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	FullName  string `gorm:"column:fullName;not null" binding:"required"`
+	Email     string `gorm:"email;unique;not null" binding:"required,email"`
+	Password  string `gorm:"not null" binding:"required"`
+	Tasks     []Task `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	FullName  string `gorm:"column:fullName;not null" binding:"required"`
-	Email     string `gorm:"column:email;unique;not null" binding:"required,email"`
-	Password  string `gorm:"column:password;not null" binding:"required"`
-	Tasks     []Task `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
 }
 
 // Hook to be called before saving a user
-func (user *User) BeforeSave(tx *gorm.DB) (err error) {
+func (user *User) BeforeCreate(tx *gorm.DB) (err error) {
 	user.Password, err = utilities.HashPassword(user.Password)
 	return
 }
