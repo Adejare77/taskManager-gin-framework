@@ -11,11 +11,12 @@ var PublicRoutes = func(route *gin.RouterGroup) {
 }
 
 var ProtectedRoutes = func(route *gin.RouterGroup) {
-	route.GET("/task", controllers.GetTasks)
-	route.GET("/task/:taskID", controllers.GetTasksByID)
-	route.POST("/task", controllers.PostTask)
-	route.PUT("/task/:taskID", controllers.UpdateTask)
-	route.DELETE("/task/:taskID", controllers.DeleteTask)
+	route.GET("/tasks", controllers.GetTasks)
+	route.POST("/tasks", controllers.PostTask)
+	route.GET("/tasks/:task_id", controllers.GetTasksByID)
+	route.PATCH("/tasks/:task_id", controllers.UpdateTask)
+	route.DELETE("/tasks/:task_id", controllers.DeleteTask)
 
+	route.GET("/user/logout", controllers.Logout)
 	route.DELETE("/user", controllers.DeleteUser)
 }
