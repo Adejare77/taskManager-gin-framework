@@ -54,7 +54,7 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	if err := utilities.ComparePaswword(user.Password, currentUser.Password); err != nil {
+	if err := utilities.ComparePassword(user.Password, currentUser.Password); err != nil {
 		handlers.Unauthorized(ctx, "invalid email or password", err)
 		return
 	}
