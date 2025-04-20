@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/adejare77/taskmanager-gin-framework/internals/utilities"
+	"github.com/Adejare77/taskmanager/internals/utilities"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )

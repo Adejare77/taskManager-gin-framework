@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
-	"github.com/adejare77/taskmanager-gin-framework/internals/schemas"
+	"github.com/Adejare77/taskmanager/internals/handlers"
+	"github.com/Adejare77/taskmanager/internals/schemas"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

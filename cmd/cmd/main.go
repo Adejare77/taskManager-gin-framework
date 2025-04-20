@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/adejare77/taskmanager-gin-framework/config"
-	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
-	"github.com/adejare77/taskmanager-gin-framework/internals/jobs"
-	"github.com/adejare77/taskmanager-gin-framework/internals/middlewares"
-	"github.com/adejare77/taskmanager-gin-framework/internals/routes"
+	"github.com/Adejare77/taskmanager/config"
+	"github.com/Adejare77/taskmanager/internals/handlers"
+	"github.com/Adejare77/taskmanager/internals/jobs"
+	"github.com/Adejare77/taskmanager/internals/middlewares"
+	"github.com/Adejare77/taskmanager/internals/routes"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )

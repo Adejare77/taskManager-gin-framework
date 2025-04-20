@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/adejare77/taskmanager-gin-framework/config"
-	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
-	"github.com/adejare77/taskmanager-gin-framework/internals/models"
-	"github.com/adejare77/taskmanager-gin-framework/internals/schemas"
-	"github.com/adejare77/taskmanager-gin-framework/internals/utilities"
+	"github.com/Adejare77/taskmanager/config"
+	"github.com/Adejare77/taskmanager/internals/handlers"
+	"github.com/Adejare77/taskmanager/internals/models"
+	"github.com/Adejare77/taskmanager/internals/schemas"
+	"github.com/Adejare77/taskmanager/internals/utilities"
 	"github.com/gin-gonic/gin"
 )
 

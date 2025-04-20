@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
-	"github.com/adejare77/taskmanager-gin-framework/internals/models"
+	"github.com/Adejare77/taskmanager/internals/handlers"
+	"github.com/Adejare77/taskmanager/internals/models"
 	"github.com/robfig/cron/v3"
 )
 

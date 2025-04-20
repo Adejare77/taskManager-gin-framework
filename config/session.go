@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
+	"github.com/Adejare77/taskmanager/internals/handlers"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -51,7 +51,7 @@ func InitSession() error {
 	}
 
 	store, err := redis.NewStore(
-		cfg.RedisSize, "tcp", cfg.RedisAddress, cfg.RDPassword, []byte(cfg.SecretKey))
+		cfg.RedisSize, "tcp", cfg.RedisAddress, cfg.RDPassword, "", []byte(cfg.SecretKey))
 	if err != nil {
 		return fmt.Errorf("session initialization %v", err)
 	}

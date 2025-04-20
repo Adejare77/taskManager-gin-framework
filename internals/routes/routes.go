@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/adejare77/taskmanager-gin-framework/internals/controllers"
+	"github.com/Adejare77/taskmanager/internals/controllers"
 	"github.com/gin-gonic/gin"
 )
 
