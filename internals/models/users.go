@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/Adejare77/go/taskManager/config"
-	"github.com/Adejare77/go/taskManager/internals/schemas"
+	"github.com/adejare77/taskmanager-gin-framework/config"
+	"github.com/adejare77/taskmanager-gin-framework/internals/schemas"
 )
 
 func Create(user schemas.User) error {

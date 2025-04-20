@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Adejare77/go/taskManager/config"
-	"github.com/Adejare77/go/taskManager/internals/schemas"
+	"github.com/adejare77/taskmanager-gin-framework/config"
+	"github.com/adejare77/taskmanager-gin-framework/internals/schemas"
 	"gorm.io/gorm"
 )
 

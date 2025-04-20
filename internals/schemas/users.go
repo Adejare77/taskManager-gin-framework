@@ -3,7 +3,7 @@ package schemas
 import (
 	"time"
 
-	"github.com/Adejare77/go/taskManager/internals/utilities"
+	"github.com/adejare77/taskmanager-gin-framework/internals/utilities"
 	"gorm.io/gorm"
 )
 

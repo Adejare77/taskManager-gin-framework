@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"github.com/Adejare77/go/taskManager/internals/handlers"
+	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )

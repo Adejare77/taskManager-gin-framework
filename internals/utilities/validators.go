@@ -47,6 +47,8 @@ func ValidationError(err error) []string {
 			errorDetails = append(errorDetails, fmt.Sprintf("%s %s cannot be less than 1", validationErr, field))
 		} else if fieldError.Tag() == "oneof" {
 			errorDetails = append(errorDetails, fmt.Sprintf("%s `%s` can only be one of this fields: pending, in-progress, completed", validationErr, field))
+		} else if fieldError.Tag() == "uuid" {
+			errorDetails = append(errorDetails, fmt.Sprintf("%s invalid post uuid", validationErr))
 		} else {
 			errorDetails = append(errorDetails, fmt.Sprintf("%s unresolved validation", validationErr))
 		}

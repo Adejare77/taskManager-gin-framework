@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/Adejare77/go/taskManager/internals/handlers"
+	"github.com/adejare77/taskmanager-gin-framework/internals/handlers"
 	"github.com/joho/godotenv"
 )
 
