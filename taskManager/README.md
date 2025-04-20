@@ -1,230 +1,157 @@
-# Project API Documentation
+# Task Manager API
 
-## Introduction
+[![Go Report Card](https://goreportcard.com/badge/github.com/Adejare77/taskManager-gin-framework)](https://goreportcard.com/report/github.com/Adejare77/taskManager-gin-framework)
 
-This project provides an API for user authentication and task management. It allows users to register, login, and manage tasks, including creating, retrieving, updating, and deleting tasks.
+A robust task management system with user authentication, session management, and automatic task status updates.
 
-## Routes
+## Key Features
+- **User Authentication**: Session-based authentication using Redis for server-side session storage
 
-### Public Routes
+- **Task Management**:
+  - Create tasks with start/due dates
+  - Automatic status transitions (pending → in-progress → overdue/completed)
+  - Paginated task listing
+- **Scheduled Updates**: Cron job for automatic status updates
+- **RESTful API**: Full CRUD operations for tasks
+- **Database**: PostgreSQL with connection pooling
+- **Security**: Password hashing, session management, and validation
 
-These routes do not require authentication.
+## Date Handling
+### Task Creation Rules
+- `due_date`: **Required** (format: `YYYY-MM-DD HH:MM`)
+- `start_date`: **Optional** (defaults to current time if omitted)
 
-#### **POST /login**
-
-**Description:** Log in a user.
-
-- **Request Body:**
-
-  ```json
-  {
-      "email": "user@example.com",
-      "password": "password123"
-  }
-  ```
-
-- **Response:**
-  - `200 OK`: User successfully logged in.
-  - `401 Unauthorized`: Invalid email or password.
-
-#### **POST /register**
-
-**Description:** Register a new user.
-
-- **Request Body:**
-
-  ```json
-  {
-      "email": "user@example.com",
-      "password": "password123",
-      "fullname": "John Doe"
-  }
-  ```
-
-- **Response:**
-  - `201 Created`: User successfully registered.
-  - `400 Bad Request`: Validation error.
-  - `409 Conflict`: Email already in use.
-
----
-
-### Protected Routes
-
-These routes require authentication. Pass the token in the `Authorization` header:
-
-```text
-Authorization: Bearer <token>
+Example JSON:
+```json
+{
+  "start_date": "2025-03-15 09:00",
+  "due_date": "2025-03-20 17:00"
+}
 ```
 
-#### **GET /task**
+## API Endpoints
 
-**Description:** Retrieve all tasks for the authenticated user.
+### Authentication
+| Method | Endpoint     | Description       |
+|--------|--------------|-------------------|
+| POST   | /register    | User registration |
+| POST   | /login       | User login        |
+| GET    | /user/logout | User logout       |
+| DELETE | /user        | Delete user       |
 
-- **Response:**
+### Task Management
+| Method | Endpoint          | Description        |
+|--------|-------------------|--------------------|
+| POST   | /tasks            | Create new task    |
+| GET    | /tasks            | List all tasks     |
+| GET    | /tasks/:task_id   | Get task details   |
+| PATCH  | /tasks/:task_id   | Update task        |
+| DELETE | /tasks/:task_id   | Delete task        |
 
-  ```json
-  [
-      {
-          "taskID": "12345",
-          "description": "Task description",
-          "title": "Task title",
-          "startDate": "2025-02-25 12:34",
-          "dueDate": "2025-02-27 14:00",
-          "status": "in-progress"
-      }
-  ]
-  ```
+### System
+| Method | Endpoint  | Description  |
+|--------|-----------|--------------|
+| GET    | /health   | Health check |
 
-#### **GET /task/:taskID**
+## Setup Instructions
 
-**Description:** Retrieve a specific task by its ID.
+### Prerequisites
+- Go 1.24+
+- PostgreSQL
+- Redis
 
-- **Response:**
+### Environment Variables
+Create a `.env` file:
 
-  ```json
-  {
-      "taskID": "12345",
-      "description": "Task description",
-      "title": "Task title",
-      "startDate": "2025-02-25 12:34",
-      "dueDate": "2025-02-27 14:00",
-      "status": "in-progress"
-  }
-  ```
+```env
+# Cron Job Scheduler
+CRON_SCHEDULE="60"
 
-#### **POST /task**
+# Database
+DB_HOST="localhost"
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_NAME=task_manager
+DB_PORT=5432
+DB_MAX_OPEN_CONNS=25
+DB_MAX_IDLE_CONNS=5
+DB_CONN_MAX_LIFETIME="30m"
 
-**Description:** Create a new task.
+# Session
+REDIS_ADDRESS=localhost:6379
+REDIS_PASSWORD=""
+SECRET_KEY=your_secret_key
+REDIS_SIZE=10
+SESSION_MAX_AGE=600
 
-- **Request Body:**
 
-  ```json
-  {
-      "description": "Task description",
-      "title": "Task title",
-      "startDate": "2025-02-26 08:00",
-      "dueDate": "2 days"
-  }
-  ```
+# Server
+SERVER_PORT=3000
+```
 
-  - `startDate`: Optional (defaults to current time if not provided).
-  - `dueDate`: Required. Acceptable formats:
-    - `YYYY-MM-DD HH:MM` (e.g., `2025-02-27 14:00`)
-    - `x day(s)` (e.g., `2 days`)
-    - `x hour(s)` (e.g., `5 hours`)
-    - `x minute(s)` (e.g., `30 minutes`)
+### Installation
+```bash
+# clone task manager
+git clone https://github.com/adejare77/taskManager-gin-framework
+cd taskManager
 
-- **Response:**
-  - `201 Created`: Task successfully created.
-  - `400 Bad Request`: Validation error.
+# Set up environment
+cp envsample .env
+nano .env  # Update with your credentials
 
-#### **PUT /task/:taskID**
+# Install dependencies
+go mod download
 
-**Description:** Update an existing task.
+# start server
+go run cmd/cmd/main.go
+```
 
-- **Request Body:**
+## Example Requests
 
-  ```json
-  {
-      "description": "Updated task description",
-      "title": "Updated task title",
-      "startDate": "2025-03-01 09:00",
-      "dueDate": "3 days"
-  }
-  ```
+### Create Task (with default start_date)
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -H "Cookie: taskManager=<your_session_cookie>" \
+  -d '{
+    "title": "Project Deadline",
+    "description": "Finalize project deliverables",
+    "due_date": "2025-03-20 17:00"
+  }'
+```
 
-- **Response:**
-  - `200 OK`: Task successfully updated.
-  - `400 Bad Request`: Validation error.
+### Create Task (with custom start_date)
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -H "Cookie: taskManager=<your_session_cookie>" \
+  -d '{
+    "title": "Team Meeting",
+    "description": "Weekly sync meeting",
+    "start_date": "2025-03-15 09:00",
+    "due_date": "2025-03-15 10:00"
+  }'
+```
 
-#### **DELETE /task/:taskID**
+## Automatic Status Updates
+The system automatically updates task statuses every 60 seconds (configurable via `CRON_SCHEDULE` environment variable):
+- Updates **pending → in-progress** when `start_date` passes
+- Updates **in-progress → overdue** when `due_date` passes
 
-**Description:** Delete a specific task by its ID.
-
-- **Response:**
-  - `200 OK`: Task successfully deleted.
-  - `404 Not Found`: Task not found.
-
-#### **DELETE /user**
-
-**Description:** Delete the authenticated user.
-
-- **Response:**
-  - `200 OK`: User successfully deleted.
-  - `401 Unauthorized`: Authentication required.
-
----
-
-## Date Format and Validation
-
-- **startDate:** Must be in the format `YYYY-MM-DD HH:MM`. Relative formats (e.g., `2 days`) are **not** allowed.
-- **dueDate:** Can be in one of the following formats:
-  - Absolute: `YYYY-MM-DD HH:MM`
-  - Relative: `x day(s)`, `x hour(s)`, `x minute(s)`
-
----
+## Security
+- Password hashing using bcrypt
+- Redis session storage
+- HTTP-only cookies
+- Input validation for all endpoints
 
 ## Error Handling
-
-- **Validation Errors:**
-
-  ```json
-  {
-      "errors": [
-          "Field 'description' is required",
-          "Field 'dueDate' must be after 'startDate'"
-      ]
-  }
-  ```
-
-- **Authentication Errors:**
-
-  ```json
-  {
-      "error": "Unauthorized"
-  }
-  ```
-
----
-
-## Technologies Used
-
-- **Backend Framework:** Gin
-- **Database:** GORM with a relational database (e.g., PostgreSQL, MySQL)
-- **Authentication:** Gin sessions with Redis
-
----
-
-## Setup and Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone <repository_url>
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   go mod tidy
-   ```
-
-3. Run the application:
-
-   ```bash
-   go run main.go
-   ```
-
----
-
-## Future Enhancements
-
-- Add pagination to the `GET /task` endpoint.
-- Implement role-based access control for tasks.
-- Add filtering and sorting options for tasks.
-
----
+Standard error format:
+```json
+{
+  "status": 400,
+  "error": "Validation failed: missing title field"
+}
+```
 
 ## Contact
-
 For questions or support, contact [email](rashisky007@gmail.com).
