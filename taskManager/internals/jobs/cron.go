@@ -12,7 +12,6 @@ import (
 
 func ScheduledStatusUpdater() error {
 	// Load cron schedule from environment variable
-	// schedule, err := time.ParseDuration(os.Getenv("CRON_SCHEDULE"))
 	schedule, err := strconv.Atoi(os.Getenv("CRON_SCHEDULE"))
 	if err != nil {
 		handlers.Warning("Invalid cron schedule time. Default to 60s")
@@ -21,13 +20,13 @@ func ScheduledStatusUpdater() error {
 
 	// Create a new cron instance or scheduler
 	cronScheduler := cron.New()
-	// Add the task status update job
+	defer cronScheduler.Stop()
+
 	cronID, err := cronScheduler.AddFunc(fmt.Sprintf("@every %ds", schedule), models.StatusUpdater)
 	if err != nil {
 		return fmt.Errorf("failed to add cron job: %v", err)
 	}
 
-	// start the cron scheduler
 	cronScheduler.Start()
 
 	handlers.Info(map[string]any{
