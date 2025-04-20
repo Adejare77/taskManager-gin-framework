@@ -1,4 +1,4 @@
-module github.com/adejare77/taskmanager-gin-framework
+module github.com/Adejare77/taskmanager
 
 go 1.24.1
 
